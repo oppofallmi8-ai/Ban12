@@ -19,14 +19,31 @@ jobs:
       - name: Extract project archive
         run: unzip -q RightMeal-Lenta-android-build.zip -d source
 
-      - name: Build Android APK
-        uses: flet-dev/flet-build-action@v1
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          target: apk
-          working-directory: source/RightMeal-main
-          runner-python-version: "3.12"
-          cache: false
-          extra-args: "--exclude fastembed onnxruntime"
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.7"
+          channel: stable
+          cache: true
+
+      - name: Install project dependencies
+        working-directory: source/RightMeal-main
+        run: uv sync --locked
+
+      - name: Build APK
+        working-directory: source/RightMeal-main
+        env:
+          CI: "true"
+          FLET_CLI_NO_RICH_OUTPUT: "1"
+        run: uv run flet build apk --yes --arch arm64-v8a --exclude fastembed onnxruntime
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
