@@ -1,3 +1,4 @@
+
 name: Build RightMeal Android APK
 
 on:
@@ -26,16 +27,54 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
-      - name: Inspect project dependencies
+      - name: Add startup diagnostics
         working-directory: source/RightMeal-main
         run: |
-          echo "=== Python project configuration ==="
-          cat pyproject.toml
-          echo "=== fastembed references ==="
-          grep -Rni "fastembed\|onnxruntime" . \
-            --exclude-dir=.git \
-            --exclude-dir=.venv \
-            --exclude='*.lock' || true
+          cat > src/main.py <<'PY'
+          """RightMeal Android startup diagnostics."""
+          from pathlib import Path
+          import traceback
+
+          import flet as ft
+          from dotenv import load_dotenv
+
+          load_dotenv()
+          ASSETS_DIR = str(Path(__file__).resolve().parent / "assets")
+
+          def main(page: ft.Page):
+              try:
+                  from ui.app import main as app_main
+                  app_main(page)
+              except BaseException:
+                  details = traceback.format_exc()
+                  page.clean()
+                  page.add(
+                      ft.Column(
+                          controls=[
+                              ft.Text(
+                                  "RIGHTMEAL: ОШИБКА ЗАПУСКА",
+                                  size=22,
+                                  weight=ft.FontWeight.BOLD,
+                              ),
+                              ft.Text(
+                                  details,
+                                  selectable=True,
+                                  font_family="monospace",
+                                  size=12,
+                              ),
+                          ],
+                          scroll=ft.ScrollMode.AUTO,
+                          expand=True,
+                        )
+                  )
+                  page.update()
+
+          if __name__ == "__main__":
+              ft.run(main, assets_dir=ASSETS_DIR)
+          PY
+
+          echo "=== Diagnostic entry point ==="
+          cat src/main.py
 
       - name: Remove unsupported Android dependency
         working-directory: source/RightMeal-main
@@ -55,8 +94,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: rightmeal-android-apk
+          name: rightmeal-android-diagnostic
           path: source/RightMeal-main/build/apk/*.apk
           if-no-files-found: error
-          retention-days: 
-
+          retention-days: 30
